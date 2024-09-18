@@ -40,38 +40,6 @@ function Get-PathEntries {
         [string]$Target = "All"
     )
 
-    # Function to retrieve PATH entries for a given environment
-    function Get-EnvironmentPathEntries {
-        param (
-            [Parameter(Mandatory = $true)]
-            [ValidateSet("System", "User")]
-            [string]$Environment
-        )
-
-        # Determine the environment variable target
-        $environmentTarget = if ($Environment -eq "System") {
-            [EnvironmentVariableTarget]::Machine
-        } else {
-            [EnvironmentVariableTarget]::User
-        }
-
-        # Get the PATH variable for the specified environment
-        $pathValue = [Environment]::GetEnvironmentVariable("Path", $environmentTarget)
-
-        if (-not $pathValue) {
-            Write-Warning "The $Environment PATH variable is empty or not found."
-            return @()
-        }
-
-        $pathEntries = $pathValue -split ';' | ForEach-Object {
-            $_.Trim()
-        } | Where-Object {
-            -not [string]::IsNullOrWhiteSpace($_)
-        }
-
-        return $pathEntries
-    }
-
     # Retrieve PATH entries based on the Target parameter
     switch ($Target) {
         "System" {

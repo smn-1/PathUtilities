@@ -18,36 +18,42 @@ function Remove-DuplicatesFromUserPath {
     [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'High')]
     param ()
 
-    $systemPathEntries = Get-PathEntries -Environment "Machine"
-    $userPathEntries = Get-PathEntries -Environment "User"
+    # Get the System and User PATH entries
+    $systemPathEntries = Get-EnvironmentPathEntries -Environment "System"
+    $userPathEntries = Get-EnvironmentPathEntries -Environment "User"
 
-    $normalizedSystemPaths = $systemPathEntries | ForEach-Object { $_.ToLowerInvariant() }
+    # Normalize the paths to ensure case-insensitive and consistent comparison
+    $normalizedSystemPaths = $systemPathEntries | ForEach-Object { $_.TrimEnd('\').ToLowerInvariant() }
+
+    # Find duplicates between User PATH and System PATH
     $duplicates = $userPathEntries | Where-Object {
-        $normalizedSystemPaths -contains $_.ToLowerInvariant()
+        $normalizedSystemPaths -contains $_.TrimEnd('\').ToLowerInvariant()
     }
 
+    # If no duplicates found, provide feedback and exit
     if (-not $duplicates) {
         Write-Host "No duplicates found between User and System PATH entries." -ForegroundColor Green
         return
     }
 
+    # Confirm before proceeding with removal
     if ($PSCmdlet.ShouldProcess("User PATH", "Remove duplicates that exist in System PATH")) {
-        # Backup User PATH
-        $backupPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        # Backup User PATH before making changes
+        $backupPath = [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::User)
         $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
         $backupFile = "$env:USERPROFILE\UserPathBackup_$timestamp.txt"
         Set-Content -Path $backupFile -Value $backupPath
         Write-Host "User PATH has been backed up to $backupFile" -ForegroundColor Green
 
-        # Remove duplicates
-        $normalizedDuplicates = $duplicates | ForEach-Object { $_.ToLowerInvariant() }
+        # Remove duplicates from User PATH
+        $normalizedDuplicates = $duplicates | ForEach-Object { $_.TrimEnd('\').ToLowerInvariant() }
         $cleanedUserPathEntries = $userPathEntries | Where-Object {
-            -not ($normalizedDuplicates -contains $_.ToLowerInvariant())
+            -not ($normalizedDuplicates -contains $_.TrimEnd('\').ToLowerInvariant())
         }
 
-        # Update User PATH
+        # Update the User PATH environment variable
         $newUserPath = $cleanedUserPathEntries -join ';'
-        [Environment]::SetEnvironmentVariable("Path", $newUserPath, "User")
+        [Environment]::SetEnvironmentVariable("Path", $newUserPath, [System.EnvironmentVariableTarget]::User)
         Write-Host "Duplicates have been removed from the User PATH." -ForegroundColor Green
     }
 }
